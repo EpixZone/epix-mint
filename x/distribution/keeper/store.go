@@ -3,15 +3,94 @@ package keeper
 import (
 	"context"
 	"errors"
+	"time"
 
 	gogotypes "github.com/cosmos/gogoproto/types"
 
+	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
+
+// get the genesis block time
+func (k Keeper) GetLastHalvingTime(ctx context.Context) (time.Time, error) {
+	store := k.storeService.OpenKVStore(ctx)
+	b, _ := store.Get(types.LastHalvingTimePrefix)
+	if b == nil {
+		return time.Now(), nil
+	}
+	tmStr, err := time.Parse(time.RFC3339, string(b))
+	logger := k.Logger(ctx)
+	logger.Info("GetLastHalvingTime", "Time", tmStr)
+	return tmStr, err
+}
+
+// set the genesis block time
+func (k Keeper) SetLastHalvingTime(ctx context.Context, tm time.Time) error {
+	store := k.storeService.OpenKVStore(ctx)
+	tmStr := tm.Format(time.RFC3339)
+	logger := k.Logger(ctx)
+	logger.Info("SetLastHalvingTime", "Time", tmStr)
+	return store.Set(types.LastHalvingTimePrefix, []byte(tmStr))
+}
+
+// get the genesis block time
+func (k Keeper) GetLastHalvingAmount(ctx context.Context) (math.Int, error) {
+	store := k.storeService.OpenKVStore(ctx)
+	b, _ := store.Get(types.LastHalvingAmountPrefix)
+	denom, _ := sdk.GetBaseDenom()
+	denomUnit, _ := sdk.GetDenomUnit(denom)
+	if b == nil {
+		// 2.5 M : first year
+		return math.NewInt(2500000).Mul(denomUnit.RoundInt()), nil
+	}
+
+	var value math.Int
+	if err := value.UnmarshalJSON(b); err != nil {
+		return math.Int{}, err
+	}
+
+	return value, nil
+}
+
+// set the genesis block time
+func (k Keeper) SetLastHalvingAmount(ctx context.Context, amount math.Int) error {
+	store := k.storeService.OpenKVStore(ctx)
+
+	bz, err := amount.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	// Store serialized coin
+	store.Set(types.LastHalvingAmountPrefix, bz)
+	return nil
+}
+
+// get the genesis block time
+func (k Keeper) GetPreviousBlockTime(ctx context.Context) (time.Time, error) {
+	store := k.storeService.OpenKVStore(ctx)
+	b, err := store.Get(types.PreviousBlockTImePrefix)
+	if b == nil {
+		return time.Now(), err
+	}
+	tmStr, err1 := time.Parse(time.RFC3339, string(b))
+	logger := k.Logger(ctx)
+	logger.Info("GetPreviousBlockTime", "Time", tmStr)
+	return tmStr, err1
+}
+
+// set the genesis block time
+func (k Keeper) SetPreviousBlockTime(ctx context.Context, tm time.Time) error {
+	store := k.storeService.OpenKVStore(ctx)
+	tmStr := tm.Format(time.RFC3339)
+	logger := k.Logger(ctx)
+	logger.Info("SetPreviousBlockTime", "Time", tmStr)
+	return store.Set(types.PreviousBlockTImePrefix, []byte(tmStr))
+}
 
 // get the delegator withdraw address, defaulting to the delegator address
 func (k Keeper) GetDelegatorWithdrawAddr(ctx context.Context, delAddr sdk.AccAddress) (sdk.AccAddress, error) {

@@ -206,6 +206,12 @@ func (m *MockBankKeeper) SpendableCoins(ctx context.Context, addr types.AccAddre
 	return ret0
 }
 
+
+// SpendableCoins mocks base method.
+func (m *MockBankKeeper) MintCoins(ctx context.Context, name string, amt types.Coins) error {
+	return nil
+}
+
 // SpendableCoins indicates an expected call of SpendableCoins.
 func (mr *MockBankKeeperMockRecorder) SpendableCoins(ctx, addr interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
