@@ -23,17 +23,6 @@ Ref: https://keepachangelog.com/en/1.0.0/
 
 # Changelog
 
-## [Unreleased]
-
-### Improvements
-
-* (store) [#22305](https://github.com/cosmos/cosmos-sdk/pull/22305) Add `LatestVersion` to the `Committer` interface to get the latest version of the store.
-
-### Bug Fixes
-
-* (store) [#20425](https://github.com/cosmos/cosmos-sdk/pull/20425) Fix nil pointer panic when query historical state where a new store don't exist.
-* (store) [#20644](https://github.com/cosmos/cosmos-sdk/pull/20644) Avoid nil error on not exhausted payload stream.
-
 ## v1.1.0 (March 20, 2024)
 
 ### Improvements

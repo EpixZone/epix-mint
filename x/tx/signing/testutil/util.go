@@ -17,6 +17,7 @@ type HandlerArgumentOptions struct {
 	Msg           proto.Message
 	AccNum        uint64
 	AccSeq        uint64
+	Tip           *txv1beta1.Tip //nolint:staticcheck // we still need this deprecated struct
 	Fee           *txv1beta1.Fee
 	SignerAddress string
 }
@@ -56,16 +57,15 @@ func MakeHandlerArguments(options HandlerArgumentOptions) (signing.SignerData, s
 
 	authInfo := &txv1beta1.AuthInfo{
 		Fee:         options.Fee,
+		Tip:         options.Tip,
 		SignerInfos: signerInfo,
 	}
 
-	protov2MarshalOpts := proto.MarshalOptions{Deterministic: true}
-	bodyBz, err := protov2MarshalOpts.Marshal(txBody)
+	bodyBz, err := proto.Marshal(txBody)
 	if err != nil {
 		return signing.SignerData{}, signing.TxData{}, err
 	}
-
-	authInfoBz, err := protov2MarshalOpts.Marshal(authInfo)
+	authInfoBz, err := proto.Marshal(authInfo)
 	if err != nil {
 		return signing.SignerData{}, signing.TxData{}, err
 	}

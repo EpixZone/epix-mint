@@ -11,12 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func marshalAny(enc *Encoder, message protoreflect.Message, writer io.Writer) error {
+func (enc Encoder) marshalAny(message protoreflect.Message, writer io.Writer) error {
 	// when a message contains a nested any field, and the top-level message has been unmarshalled into a dyanmicpb,
 	// the nested any field will also be a dynamicpb. In this case, we must use the dynamicpb API.
 	_, ok := message.Interface().(*dynamicpb.Message)
 	if ok {
-		return marshalDynamic(enc, message, writer)
+		return enc.marshalDynamic(message, writer)
 	}
 
 	anyMsg, ok := message.Interface().(*anypb.Any)
@@ -50,7 +50,13 @@ func marshalAny(enc *Encoder, message protoreflect.Message, writer io.Writer) er
 		protoMessage = valueMsg.ProtoReflect()
 	}
 
-	return enc.beginMarshal(protoMessage, writer, true)
+	_, named := getMessageAminoName(protoMessage.Descriptor().Options())
+	if !named {
+		return fmt.Errorf("message %s is packed into an any field, so requires an amino.name annotation",
+			anyMsg.TypeUrl)
+	}
+
+	return enc.beginMarshal(protoMessage, writer)
 }
 
 const (
@@ -58,7 +64,7 @@ const (
 	anyValueFieldName   = "value"
 )
 
-func marshalDynamic(enc *Encoder, message protoreflect.Message, writer io.Writer) error {
+func (enc Encoder) marshalDynamic(message protoreflect.Message, writer io.Writer) error {
 	msgName := message.Get(message.Descriptor().Fields().ByName(anyTypeURLFieldName)).String()[1:]
 	msgBytes := message.Get(message.Descriptor().Fields().ByName(anyValueFieldName)).Bytes()
 
@@ -67,11 +73,17 @@ func marshalDynamic(enc *Encoder, message protoreflect.Message, writer io.Writer
 		return errors.Wrapf(err, "can't resolve type URL %s", msgName)
 	}
 
+	_, named := getMessageAminoName(desc.Options())
+	if !named {
+		return fmt.Errorf("message %s is packed into an any field, so requires an amino.name annotation",
+			msgName)
+	}
+
 	valueMsg := dynamicpb.NewMessageType(desc.(protoreflect.MessageDescriptor)).New().Interface()
 	err = proto.Unmarshal(msgBytes, valueMsg)
 	if err != nil {
 		return err
 	}
 
-	return enc.beginMarshal(valueMsg.ProtoReflect(), writer, true)
+	return enc.beginMarshal(valueMsg.ProtoReflect(), writer)
 }

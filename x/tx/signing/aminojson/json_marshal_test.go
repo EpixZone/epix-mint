@@ -1,14 +1,10 @@
 package aminojson_test
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/cosmos/cosmos-proto/rapidproto"
 	"github.com/stretchr/testify/require"
@@ -18,7 +14,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/dynamicpb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"gotest.tools/v3/assert"
 	"pgregory.net/rapid"
 
@@ -122,13 +117,12 @@ func TestAminoJSON(t *testing.T) {
 	require.Equal(t, string(sortedBz), string(encodedDefaultBz))
 }
 
-func naiveSortedJSON(tb testing.TB, jsonToSort []byte) []byte {
-	tb.Helper()
+func naiveSortedJSON(t testing.TB, jsonToSort []byte) []byte {
 	var c interface{}
 	err := json.Unmarshal(jsonToSort, &c)
-	assert.NilError(tb, err)
+	assert.NilError(t, err)
 	sortedBz, err := json.Marshal(c)
-	assert.NilError(tb, err)
+	assert.NilError(t, err)
 	return sortedBz
 }
 
@@ -179,269 +173,6 @@ func TestDynamicPb(t *testing.T) {
 	require.NoError(t, err)
 	dynamicBz, err := encoder.Marshal(dynamicMsg)
 	require.NoError(t, err)
+	fmt.Printf("dynamicBz: %s\n", string(dynamicBz))
 	require.Equal(t, string(bz), string(dynamicBz))
-}
-
-func TestMarshalDuration(t *testing.T) {
-	msg := &testpb.Duration{
-		Duration: &durationpb.Duration{Seconds: 1},
-	}
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{})
-
-	bz, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, `{"duration":"1000000000"}`, string(bz))
-
-	// define a custom marshaler for duration
-	encoder.DefineTypeEncoding("google.protobuf.Duration", func(_ *aminojson.Encoder, msg protoreflect.Message, w io.Writer) error {
-		var secondsName protoreflect.Name = "seconds"
-
-		fields := msg.Descriptor().Fields()
-		secondsField := fields.ByName(secondsName)
-		if secondsField == nil {
-			return errors.New("expected seconds field")
-		}
-		seconds := msg.Get(secondsField).Int()
-
-		_, err = fmt.Fprint(w, "\"", (time.Duration(seconds) * time.Second).String(), "\"")
-		return err
-	})
-	bz, err = encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, `{"duration":"1s"}`, string(bz))
-}
-
-func TestWithAJson(t *testing.T) {
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{})
-
-	// list
-	msg := &testpb.WithAJson{
-		Field1: []byte(`[{"name":"child1"}]`),
-	}
-	bz, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, `{"field1":[{"name":"child1"}]}`, string(bz))
-
-	// string
-	msg = &testpb.WithAJson{
-		Field1: []byte(`"hello again"`),
-	}
-	bz, err = encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, `{"field1":"hello again"}`, string(bz))
-
-	// object
-	msg = &testpb.WithAJson{
-		Field1: []byte(`{"deeper":{"nesting":1}}`),
-	}
-	bz, err = encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, `{"field1":{"deeper":{"nesting":1}}}`, string(bz))
-}
-
-func TestIndent(t *testing.T) {
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{Indent: "	"})
-
-	msg := &testpb.ABitOfEverything{
-		Message: &testpb.NestedMessage{
-			Foo: "test",
-			Bar: 0, // this is the default value and should be omitted from output
-		},
-		Enum:     testpb.AnEnum_ONE,
-		Repeated: []int32{3, -7, 2, 6, 4},
-		Str:      `abcxyz"foo"def`,
-		Bool:     true,
-		Bytes:    []byte{0, 1, 2, 3},
-		I32:      -15,
-		F32:      1001,
-		U32:      1200,
-		Si32:     -376,
-		Sf32:     -1000,
-		I64:      14578294827584932,
-		F64:      9572348124213523654,
-		U64:      4759492485,
-		Si64:     -59268425823934,
-		Sf64:     -659101379604211154,
-	}
-
-	bz, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	fmt.Println(string(bz))
-	require.Equal(t, `{
-	"type": "ABitOfEverything",
-	"value": {
-		"bool": true,
-		"bytes": "AAECAw==",
-		"enum": 1,
-		"f32": 1001,
-		"f64": "9572348124213523654",
-		"i32": -15,
-		"i64": "14578294827584932",
-		"message": {
-			"foo": "test"
-		},
-		"repeated": [
-			3,
-			-7,
-			2,
-			6,
-			4
-		],
-		"sf32": -1000,
-		"sf64": "-659101379604211154",
-		"si32": -376,
-		"si64": "-59268425823934",
-		"str": "abcxyz\"foo\"def",
-		"u32": 1200,
-		"u64": "4759492485"
-	}
-}`, string(bz))
-}
-
-func TestEnumAsString(t *testing.T) {
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{Indent: "	", EnumAsString: true})
-
-	msg := &testpb.ABitOfEverything{
-		Message: &testpb.NestedMessage{
-			Foo: "test",
-			Bar: 0, // this is the default value and should be omitted from output
-		},
-		Enum:     testpb.AnEnum_ONE,
-		Repeated: []int32{3, -7, 2, 6, 4},
-		Str:      `abcxyz"foo"def`,
-		Bool:     true,
-		Bytes:    []byte{0, 1, 2, 3},
-		I32:      -15,
-		F32:      1001,
-		U32:      1200,
-		Si32:     -376,
-		Sf32:     -1000,
-		I64:      14578294827584932,
-		F64:      9572348124213523654,
-		U64:      4759492485,
-		Si64:     -59268425823934,
-		Sf64:     -659101379604211154,
-	}
-
-	bz, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	fmt.Println(string(bz))
-	require.Equal(t, `{
-	"type": "ABitOfEverything",
-	"value": {
-		"bool": true,
-		"bytes": "AAECAw==",
-		"enum": "ONE",
-		"f32": 1001,
-		"f64": "9572348124213523654",
-		"i32": -15,
-		"i64": "14578294827584932",
-		"message": {
-			"foo": "test"
-		},
-		"repeated": [
-			3,
-			-7,
-			2,
-			6,
-			4
-		],
-		"sf32": -1000,
-		"sf64": "-659101379604211154",
-		"si32": -376,
-		"si64": "-59268425823934",
-		"str": "abcxyz\"foo\"def",
-		"u32": 1200,
-		"u64": "4759492485"
-	}
-}`, string(bz))
-}
-
-func TestAminoNameAsTypeURL(t *testing.T) {
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{Indent: "	", AminoNameAsTypeURL: true})
-
-	msg := &testpb.ABitOfEverything{
-		Message: &testpb.NestedMessage{
-			Foo: "test",
-			Bar: 0, // this is the default value and should be omitted from output
-		},
-		Enum:     testpb.AnEnum_ONE,
-		Repeated: []int32{3, -7, 2, 6, 4},
-		Str:      `abcxyz"foo"def`,
-		Bool:     true,
-		Bytes:    []byte{0, 1, 2, 3},
-		I32:      -15,
-		F32:      1001,
-		U32:      1200,
-		Si32:     -376,
-		Sf32:     -1000,
-		I64:      14578294827584932,
-		F64:      9572348124213523654,
-		U64:      4759492485,
-		Si64:     -59268425823934,
-		Sf64:     -659101379604211154,
-	}
-
-	bz, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	fmt.Println(string(bz))
-	require.Equal(t, `{
-	"type": "/testpb.ABitOfEverything",
-	"value": {
-		"bool": true,
-		"bytes": "AAECAw==",
-		"enum": 1,
-		"f32": 1001,
-		"f64": "9572348124213523654",
-		"i32": -15,
-		"i64": "14578294827584932",
-		"message": {
-			"foo": "test"
-		},
-		"repeated": [
-			3,
-			-7,
-			2,
-			6,
-			4
-		],
-		"sf32": -1000,
-		"sf64": "-659101379604211154",
-		"si32": -376,
-		"si64": "-59268425823934",
-		"str": "abcxyz\"foo\"def",
-		"u32": 1200,
-		"u64": "4759492485"
-	}
-}`, string(bz))
-}
-
-func TestCustomBytesEncoder(t *testing.T) {
-	cdc := amino.NewCodec()
-	cdc.RegisterConcrete(&testpb.ABitOfEverything{}, "ABitOfEverything", nil)
-	encoder := aminojson.NewEncoder(aminojson.EncoderOptions{})
-
-	bz := sha256.Sum256([]byte("test"))
-
-	msg := &testpb.ABitOfEverything{
-		Bytes:       bz[:],
-		PrettyBytes: bz[:],
-	}
-
-	legacyJSON, err := cdc.MarshalJSON(msg)
-	require.NoError(t, err)
-	aminoJSON, err := encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.Equal(t, string(legacyJSON), string(aminoJSON))
-
-	encoder.DefineFieldEncoding(
-		"hex",
-		func(enc *aminojson.Encoder, v protoreflect.Value, w io.Writer) error {
-			_, err := fmt.Fprintf(w, "\"%x\"", v.Bytes())
-			return err
-		})
-	aminoJSON, err = encoder.Marshal(msg)
-	require.NoError(t, err)
-	require.NotEqual(t, string(legacyJSON), string(aminoJSON))
-	t.Logf("hex encoded bytes: %s", string(aminoJSON))
 }

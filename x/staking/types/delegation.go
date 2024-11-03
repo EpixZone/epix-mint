@@ -13,7 +13,7 @@ import (
 )
 
 // Implements Delegation interface
-var _ sdk.DelegationI = Delegation{}
+var _ DelegationI = Delegation{}
 
 // NewDelegation creates a new delegation object
 func NewDelegation(delegatorAddr, validatorAddr string, shares math.LegacyDec) Delegation {

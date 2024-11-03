@@ -2,10 +2,8 @@ package aminojson
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
 	signingv1beta1 "cosmossdk.io/api/cosmos/tx/signing/v1beta1"
@@ -24,7 +22,7 @@ type SignModeHandler struct {
 // SignModeHandlerOptions are the options for the SignModeHandler.
 type SignModeHandlerOptions struct {
 	FileResolver signing.ProtoFileResolver
-	TypeResolver signing.TypeResolver
+	TypeResolver protoregistry.MessageTypeResolver
 	Encoder      *Encoder
 }
 
@@ -32,7 +30,7 @@ type SignModeHandlerOptions struct {
 func NewSignModeHandler(options SignModeHandlerOptions) *SignModeHandler {
 	h := &SignModeHandler{}
 	if options.FileResolver == nil {
-		h.fileResolver = gogoproto.HybridResolver
+		h.fileResolver = protoregistry.GlobalFiles
 	} else {
 		h.fileResolver = options.FileResolver
 	}
@@ -45,7 +43,6 @@ func NewSignModeHandler(options SignModeHandlerOptions) *SignModeHandler {
 		h.encoder = NewEncoder(EncoderOptions{
 			FileResolver: options.FileResolver,
 			TypeResolver: options.TypeResolver,
-			EnumAsString: false, // ensure enum as string is disabled
 		})
 	} else {
 		h.encoder = *options.Encoder
@@ -81,7 +78,7 @@ func (h SignModeHandler) GetSignBytes(_ context.Context, signerData signing.Sign
 
 	f := txData.AuthInfo.Fee
 	if f == nil {
-		return nil, errors.New("fee cannot be nil when tipper is not signer")
+		return nil, fmt.Errorf("fee cannot be nil when tipper is not signer")
 	}
 	fee = &aminojsonpb.AminoSignFee{
 		Amount:  f.Amount,

@@ -2,7 +2,6 @@ package autocli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,7 +10,7 @@ import (
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	"cosmossdk.io/math"
 	"cosmossdk.io/x/tx/signing/aminojson"
-
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -53,9 +52,7 @@ func (b *Builder) AddQueryServiceCommands(cmd *cobra.Command, cmdDescriptor *aut
 			return err
 		}
 
-		if !subCmdDesc.EnhanceCustomCommand {
-			cmd.AddCommand(subCmd)
-		}
+		cmd.AddCommand(subCmd)
 	}
 
 	// skip empty command descriptors
@@ -65,7 +62,7 @@ func (b *Builder) AddQueryServiceCommands(cmd *cobra.Command, cmdDescriptor *aut
 
 	descriptor, err := b.FileResolver.FindDescriptorByName(protoreflect.FullName(cmdDescriptor.Service))
 	if err != nil {
-		return fmt.Errorf("can't find service %s: %w", cmdDescriptor.Service, err)
+		return errors.Errorf("can't find service %s: %v", cmdDescriptor.Service, err)
 	}
 
 	service := descriptor.(protoreflect.ServiceDescriptor)
@@ -121,12 +118,11 @@ func (b *Builder) BuildQueryMethodCommand(ctx context.Context, descriptor protor
 	methodName := fmt.Sprintf("/%s/%s", serviceDescriptor.FullName(), descriptor.Name())
 	outputType := util.ResolveMessageType(b.TypeResolver, descriptor.Output())
 	encoderOptions := aminojson.EncoderOptions{
-		Indent:             "  ",
-		EnumAsString:       true,
-		DoNotSortFields:    true,
-		AminoNameAsTypeURL: true,
-		TypeResolver:       b.TypeResolver,
-		FileResolver:       b.FileResolver,
+		Indent:          "  ",
+		EnumAsString:    true,
+		DoNotSortFields: true,
+		TypeResolver:    b.TypeResolver,
+		FileResolver:    b.FileResolver,
 	}
 
 	cmd, err := b.buildMethodCommandCommon(descriptor, options, func(cmd *cobra.Command, input protoreflect.Message) error {
@@ -150,7 +146,8 @@ func (b *Builder) BuildQueryMethodCommand(ctx context.Context, descriptor protor
 			return fmt.Errorf("cannot marshal response %v: %w", output.Interface(), err)
 		}
 
-		return b.outOrStdoutFormat(cmd, bz)
+		err = b.outOrStdoutFormat(cmd, bz)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -180,14 +177,14 @@ func encoder(encoder aminojson.Encoder) aminojson.Encoder {
 		fields := msg.Descriptor().Fields()
 		secondsField := fields.ByName(secondsName)
 		if secondsField == nil {
-			return errors.New("expected seconds field")
+			return fmt.Errorf("expected seconds field")
 		}
 
 		seconds := msg.Get(secondsField).Int()
 
 		nanosField := fields.ByName(nanosName)
 		if nanosField == nil {
-			return errors.New("expected nanos field")
+			return fmt.Errorf("expected nanos field")
 		}
 
 		nanos := msg.Get(nanosField).Int()
@@ -203,14 +200,14 @@ func encoder(encoder aminojson.Encoder) aminojson.Encoder {
 		fields := msg.Descriptor().Fields()
 		denomField := fields.ByName(denomName)
 		if denomField == nil {
-			return errors.New("expected denom field")
+			return fmt.Errorf("expected denom field")
 		}
 
 		denom := msg.Get(denomField).String()
 
 		amountField := fields.ByName(amountName)
 		if amountField == nil {
-			return errors.New("expected amount field")
+			return fmt.Errorf("expected amount field")
 		}
 
 		amount := msg.Get(amountField).String()

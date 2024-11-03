@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"maps"
 	"reflect"
 
 	"cosmossdk.io/store/prefix"
@@ -58,7 +57,9 @@ func (s Subspace) WithKeyTable(table KeyTable) Subspace {
 		panic("WithKeyTable() called on already initialized Subspace")
 	}
 
-	maps.Copy(s.table.m, table.m)
+	for k, v := range table.m {
+		s.table.m[k] = v
+	}
 
 	// Allocate additional capacity for Subspace.name
 	// So we don't have to allocate extra space each time appending to the key
@@ -92,7 +93,7 @@ func (s Subspace) Validate(ctx sdk.Context, key []byte, value interface{}) error
 	}
 
 	if err := attr.vfn(value); err != nil {
-		return fmt.Errorf("invalid parameter value: %w", err)
+		return fmt.Errorf("invalid parameter value: %s", err)
 	}
 
 	return nil

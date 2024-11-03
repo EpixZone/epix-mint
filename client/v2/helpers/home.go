@@ -6,13 +6,8 @@ import (
 	"strings"
 )
 
-// EnvPrefix is the prefix for environment variables that are used by the CLI.
-// It should match the one used for viper in the CLI.
-var EnvPrefix = ""
-
 // GetNodeHomeDirectory gets the home directory of the node (where the config is located).
-// It parses the home flag if set if the `(PREFIX)_HOME` environment variable if set (and ignores name).
-// When no prefix is set, it reads the `NODE_HOME` environment variable.
+// It parses the home flag if set if the `NODE_HOME` environment variable if set (and ignores name).
 // Otherwise, it returns the default home directory given its name.
 func GetNodeHomeDirectory(name string) (string, error) {
 	// get the home directory from the flag
@@ -26,19 +21,12 @@ func GetNodeHomeDirectory(name string) (string, error) {
 	}
 
 	// get the home directory from the environment variable
-	// to not clash with the $HOME system variable, when no prefix is set
-	// we check the NODE_HOME environment variable
-	homeDir, envHome := "", "HOME"
-	if len(EnvPrefix) > 0 {
-		homeDir = os.Getenv(EnvPrefix + "_" + envHome)
-	} else {
-		homeDir = os.Getenv("NODE_" + envHome)
-	}
+	homeDir := os.Getenv("NODE_HOME")
 	if homeDir != "" {
 		return filepath.Clean(homeDir), nil
 	}
 
-	// get user home directory
+	// return the default home directory
 	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

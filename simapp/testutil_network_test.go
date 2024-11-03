@@ -14,7 +14,7 @@ import (
 type IntegrationTestSuite struct {
 	suite.Suite
 
-	network network.NetworkI
+	network *network.Network
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {

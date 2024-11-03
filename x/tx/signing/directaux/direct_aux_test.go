@@ -16,6 +16,7 @@ import (
 	"cosmossdk.io/api/cosmos/crypto/secp256k1"
 	signingv1beta1 "cosmossdk.io/api/cosmos/tx/signing/v1beta1"
 	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/x/tx/signing"
 	"cosmossdk.io/x/tx/signing/directaux"
 )
@@ -53,6 +54,7 @@ func TestDirectAuxHandler(t *testing.T) {
 		GasLimit: 20000,
 		Payer:    feePayerAddr,
 	}
+	tip := &txv1beta1.Tip{Amount: []*basev1beta1.Coin{{Denom: "tip-token", Amount: "10"}}} //nolint:staticcheck // we still need this deprecated struct
 
 	txBody := &txv1beta1.TxBody{
 		Messages: []*anypb.Any{msg},
@@ -61,6 +63,7 @@ func TestDirectAuxHandler(t *testing.T) {
 
 	authInfo := &txv1beta1.AuthInfo{
 		Fee:         fee,
+		Tip:         tip,
 		SignerInfos: signerInfo,
 	}
 
@@ -110,6 +113,7 @@ func TestDirectAuxHandler(t *testing.T) {
 	}
 	authInfoWithNoFeePayer := &txv1beta1.AuthInfo{
 		Fee:         feeWithNoPayer,
+		Tip:         tip,
 		SignerInfos: signerInfo,
 	}
 	authInfoWithNoFeePayerBz, err := proto.Marshal(authInfoWithNoFeePayer)
@@ -135,6 +139,7 @@ func TestDirectAuxHandler(t *testing.T) {
 		ChainId:       chainID,
 		AccountNumber: accNum,
 		Sequence:      accSeq,
+		Tip:           tip,
 	}
 	expectedSignBytes, err := proto.Marshal(signDocDirectAux)
 	require.NoError(t, err)
@@ -157,3 +162,5 @@ func (d dummyAddressCodec) StringToBytes(text string) ([]byte, error) {
 func (d dummyAddressCodec) BytesToString(bz []byte) (string, error) {
 	return hex.EncodeToString(bz), nil
 }
+
+var _ address.Codec = dummyAddressCodec{}

@@ -3,12 +3,10 @@ package textual
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
 	cosmos_proto "github.com/cosmos/cosmos-proto"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -69,10 +67,10 @@ type SignModeHandler struct {
 // NewSignModeHandler returns a new SignModeHandler which generates sign bytes and provides  value renderers.
 func NewSignModeHandler(o SignModeOptions) (*SignModeHandler, error) {
 	if o.CoinMetadataQuerier == nil {
-		return nil, errors.New("coinMetadataQuerier must be non-empty")
+		return nil, fmt.Errorf("coinMetadataQuerier must be non-empty")
 	}
 	if o.FileResolver == nil {
-		o.FileResolver = gogoproto.HybridResolver
+		o.FileResolver = protoregistry.GlobalFiles
 	}
 	if o.TypeResolver == nil {
 		o.TypeResolver = protoregistry.GlobalTypes
@@ -136,7 +134,7 @@ func (r *SignModeHandler) GetFieldValueRenderer(fd protoreflect.FieldDescriptor)
 		}
 
 		if fd.IsMap() {
-			return nil, errors.New("value renderers cannot format value of type map")
+			return nil, fmt.Errorf("value renderers cannot format value of type map")
 		}
 		return NewMessageValueRenderer(r, md), nil
 	case fd.Kind() == protoreflect.BoolKind:

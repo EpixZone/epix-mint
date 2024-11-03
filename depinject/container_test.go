@@ -1,7 +1,6 @@
 package depinject_test
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -301,7 +300,7 @@ func TestCyclic(t *testing.T) {
 }
 
 func TestErrorOption(t *testing.T) {
-	err := depinject.Inject(depinject.Error(errors.New("an error")))
+	err := depinject.Inject(depinject.Error(fmt.Errorf("an error")))
 	require.Error(t, err)
 }
 
@@ -607,7 +606,7 @@ func ProvideTestOutput() (TestOutput, error) {
 }
 
 func ProvideTestOutputErr() (TestOutput, error) {
-	return TestOutput{}, errors.New("error")
+	return TestOutput{}, fmt.Errorf("error")
 }
 
 func TestStructArgs(t *testing.T) {

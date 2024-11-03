@@ -3,28 +3,16 @@ package signing
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	cosmos_proto "github.com/cosmos/cosmos-proto"
-	gogoproto "github.com/cosmos/gogoproto/proto"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
 	msgv1 "cosmossdk.io/api/cosmos/msg/v1"
+	"cosmossdk.io/core/address"
 )
-
-type TypeResolver interface {
-	protoregistry.MessageTypeResolver
-	protoregistry.ExtensionTypeResolver
-}
-
-// AddressCodec is the cosmossdk.io/core/address codec interface used by the context.
-type AddressCodec interface {
-	StringToBytes(string) ([]byte, error)
-	BytesToString([]byte) (string, error)
-}
 
 // Context is a context for retrieving the list of signers from a
 // message where signers are specified by the cosmos.msg.v1.signer protobuf
@@ -33,11 +21,10 @@ type AddressCodec interface {
 type Context struct {
 	fileResolver          ProtoFileResolver
 	typeResolver          protoregistry.MessageTypeResolver
-	addressCodec          AddressCodec
-	validatorAddressCodec AddressCodec
-	getSignersFuncs       sync.Map
+	addressCodec          address.Codec
+	validatorAddressCodec address.Codec
+	getSignersFuncs       map[protoreflect.FullName]GetSignersFunc
 	customGetSignerFuncs  map[protoreflect.FullName]GetSignersFunc
-	maxRecursionDepth     int
 }
 
 // Options are options for creating Context which will be used for signing operations.
@@ -47,19 +34,15 @@ type Options struct {
 	FileResolver ProtoFileResolver
 
 	// TypeResolver is the protobuf type resolver to use for resolving message types.
-	TypeResolver TypeResolver
+	TypeResolver protoregistry.MessageTypeResolver
 
 	// AddressCodec is the codec for converting addresses between strings and bytes.
-	AddressCodec AddressCodec
+	AddressCodec address.Codec
 
 	// ValidatorAddressCodec is the codec for converting validator addresses between strings and bytes.
-	ValidatorAddressCodec AddressCodec
+	ValidatorAddressCodec address.Codec
 
-	// CustomGetSigners is a map of message types to custom GetSignersFuncs.
 	CustomGetSigners map[protoreflect.FullName]GetSignersFunc
-
-	// MaxRecursionDepth is the maximum depth of nested messages that will be traversed
-	MaxRecursionDepth int
 }
 
 // DefineCustomGetSigners defines a custom GetSigners function for a given
@@ -86,7 +69,7 @@ type ProtoFileResolver interface {
 func NewContext(options Options) (*Context, error) {
 	protoFiles := options.FileResolver
 	if protoFiles == nil {
-		protoFiles = gogoproto.HybridResolver
+		protoFiles = protoregistry.GlobalFiles
 	}
 
 	protoTypes := options.TypeResolver
@@ -102,10 +85,6 @@ func NewContext(options Options) (*Context, error) {
 		return nil, errors.New("validator address codec is required")
 	}
 
-	if options.MaxRecursionDepth <= 0 {
-		options.MaxRecursionDepth = 32
-	}
-
 	customGetSignerFuncs := map[protoreflect.FullName]GetSignersFunc{}
 	for k := range options.CustomGetSigners {
 		customGetSignerFuncs[k] = options.CustomGetSigners[k]
@@ -116,9 +95,8 @@ func NewContext(options Options) (*Context, error) {
 		typeResolver:          protoTypes,
 		addressCodec:          options.AddressCodec,
 		validatorAddressCodec: options.ValidatorAddressCodec,
-		getSignersFuncs:       sync.Map{},
+		getSignersFuncs:       map[protoreflect.FullName]GetSignersFunc{},
 		customGetSignerFuncs:  customGetSignerFuncs,
-		maxRecursionDepth:     options.MaxRecursionDepth,
 	}
 
 	return c, nil
@@ -225,92 +203,92 @@ func (c *Context) makeGetSignersFunc(descriptor protoreflect.MessageDescriptor) 
 				}
 			}
 		case protoreflect.MessageKind:
-			var fieldGetter func(protoreflect.Message, int) ([][]byte, error)
-			fieldGetter = func(msg protoreflect.Message, depth int) ([][]byte, error) {
-				if depth > c.maxRecursionDepth {
-					return nil, errors.New("maximum recursion depth exceeded")
-				}
-				desc := msg.Descriptor()
-				signerFields, err := getSignersFieldNames(desc)
-				if err != nil {
-					return nil, err
-				}
-				if len(signerFields) != 1 {
-					return nil, fmt.Errorf("nested cosmos.msg.v1.signer option in message %s must contain only one value", desc.FullName())
-				}
-				signerFieldName := signerFields[0]
-				childField := desc.Fields().ByName(protoreflect.Name(signerFieldName))
-				switch {
-				case childField.Kind() == protoreflect.MessageKind:
-					if childField.IsList() {
-						childMsgs := msg.Get(childField).List()
-						var arr [][]byte
-						for i := 0; i < childMsgs.Len(); i++ {
-							res, err := fieldGetter(childMsgs.Get(i).Message(), depth+1)
-							if err != nil {
-								return nil, err
+			isList := field.IsList()
+			nestedMessage := field.Message()
+			nestedSignersFields, err := getSignersFieldNames(nestedMessage)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(nestedSignersFields) != 1 {
+				return nil, fmt.Errorf("nested cosmos.msg.v1.signer option in message %s must contain only one value", nestedMessage.FullName())
+			}
+
+			nestedFieldName := nestedSignersFields[0]
+			nestedField := nestedMessage.Fields().ByName(protoreflect.Name(nestedFieldName))
+			nestedIsList := nestedField.IsList()
+			if nestedField == nil {
+				return nil, fmt.Errorf("field %s not found in message %s", nestedFieldName, nestedMessage.FullName())
+			}
+
+			if nestedField.Kind() != protoreflect.StringKind || nestedField.IsMap() || nestedField.HasOptionalKeyword() {
+				return nil, fmt.Errorf("nested signer field %s in message %s must be a simple string", nestedFieldName, nestedMessage.FullName())
+			}
+
+			addrCdc := c.getAddressCodec(nestedField)
+
+			if isList {
+				if nestedIsList {
+					fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
+						msgs := msg.ProtoReflect().Get(field).List()
+						m := msgs.Len()
+						for i := 0; i < m; i++ {
+							signers := msgs.Get(i).Message().Get(nestedField).List()
+							n := signers.Len()
+							for j := 0; j < n; j++ {
+								addrStr := signers.Get(j).String()
+								addrBz, err := addrCdc.StringToBytes(addrStr)
+								if err != nil {
+									return nil, err
+								}
+								arr = append(arr, addrBz)
 							}
-							arr = append(arr, res...)
 						}
 						return arr, nil
-					} else {
-						return fieldGetter(msg.Get(childField).Message(), depth+1)
 					}
-				case childField.IsMap() || childField.HasOptionalKeyword():
-					return nil, fmt.Errorf("cosmos.msg.v1.signer field %s in message %s must not be a map or optional", signerFieldName, desc.FullName())
-				case childField.Kind() == protoreflect.StringKind:
-					addrCdc := c.getAddressCodec(childField)
-					if childField.IsList() {
-						childMsgs := msg.Get(childField).List()
-						n := childMsgs.Len()
-						var res [][]byte
-						for i := 0; i < n; i++ {
-							addrStr := childMsgs.Get(i).String()
+				} else {
+					fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
+						msgs := msg.ProtoReflect().Get(field).List()
+						m := msgs.Len()
+						for i := 0; i < m; i++ {
+							addrStr := msgs.Get(i).Message().Get(nestedField).String()
 							addrBz, err := addrCdc.StringToBytes(addrStr)
 							if err != nil {
 								return nil, err
 							}
-							res = append(res, addrBz)
+							arr = append(arr, addrBz)
 						}
-						return res, nil
-					} else {
-						addrStr := msg.Get(childField).String()
+						return arr, nil
+					}
+				}
+			} else {
+				if nestedIsList {
+					fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
+						nestedMsg := msg.ProtoReflect().Get(field).Message()
+						signers := nestedMsg.Get(nestedField).List()
+						n := signers.Len()
+						for j := 0; j < n; j++ {
+							addrStr := signers.Get(j).String()
+							addrBz, err := addrCdc.StringToBytes(addrStr)
+							if err != nil {
+								return nil, err
+							}
+							arr = append(arr, addrBz)
+						}
+						return arr, nil
+					}
+				} else {
+					fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
+						addrStr := msg.ProtoReflect().Get(field).Message().Get(nestedField).String()
 						addrBz, err := addrCdc.StringToBytes(addrStr)
 						if err != nil {
 							return nil, err
 						}
-						return [][]byte{addrBz}, nil
+						return append(arr, addrBz), nil
 					}
 				}
-				return nil, fmt.Errorf("unexpected field type %s for field %s in message %s, only string and message type are supported",
-					childField.Kind(), signerFieldName, desc.FullName())
 			}
 
-			fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
-				if field.IsList() {
-					signers := msg.ProtoReflect().Get(field).List()
-					n := signers.Len()
-					for i := 0; i < n; i++ {
-						res, err := fieldGetter(signers.Get(i).Message(), 0)
-						if err != nil {
-							return nil, err
-						}
-						arr = append(arr, res...)
-					}
-				} else {
-					res, err := fieldGetter(msg.ProtoReflect().Get(field).Message(), 0)
-					if err != nil {
-						return nil, err
-					}
-					arr = append(arr, res...)
-				}
-				return arr, nil
-			}
-		case protoreflect.BytesKind:
-			fieldGetters[i] = func(msg proto.Message, arr [][]byte) ([][]byte, error) {
-				addrBz := msg.ProtoReflect().Get(field).Bytes()
-				return append(arr, addrBz), nil
-			}
 		default:
 			return nil, fmt.Errorf("unexpected field type %s for field %s in message %s", field.Kind(), fieldName, descriptor.FullName())
 		}
@@ -328,7 +306,7 @@ func (c *Context) makeGetSignersFunc(descriptor protoreflect.MessageDescriptor) 
 	}, nil
 }
 
-func (c *Context) getAddressCodec(field protoreflect.FieldDescriptor) AddressCodec {
+func (c *Context) getAddressCodec(field protoreflect.FieldDescriptor) address.Codec {
 	scalarOpt := proto.GetExtension(field.Options(), cosmos_proto.E_Scalar)
 	addrCdc := c.addressCodec
 	if scalarOpt != nil {
@@ -345,17 +323,14 @@ func (c *Context) getGetSignersFn(messageDescriptor protoreflect.MessageDescript
 	if ok {
 		return f, nil
 	}
-
-	loadedFn, ok := c.getSignersFuncs.Load(messageDescriptor.FullName())
+	f, ok = c.getSignersFuncs[messageDescriptor.FullName()]
 	if !ok {
 		var err error
 		f, err = c.makeGetSignersFunc(messageDescriptor)
 		if err != nil {
 			return nil, err
 		}
-		c.getSignersFuncs.Store(messageDescriptor.FullName(), f)
-	} else {
-		f = loadedFn.(GetSignersFunc)
+		c.getSignersFuncs[messageDescriptor.FullName()] = f
 	}
 
 	return f, nil
@@ -372,12 +347,12 @@ func (c *Context) GetSigners(msg proto.Message) ([][]byte, error) {
 }
 
 // AddressCodec returns the address codec used by the context.
-func (c *Context) AddressCodec() AddressCodec {
+func (c *Context) AddressCodec() address.Codec {
 	return c.addressCodec
 }
 
 // ValidatorAddressCodec returns the validator address codec used by the context.
-func (c *Context) ValidatorAddressCodec() AddressCodec {
+func (c *Context) ValidatorAddressCodec() address.Codec {
 	return c.validatorAddressCodec
 }
 

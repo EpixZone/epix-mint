@@ -1,7 +1,6 @@
 package aminojson
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -15,17 +14,16 @@ const (
 	nanosName   protoreflect.Name = "nanos"
 )
 
-// marshalTimestamp replicate https://github.com/tendermint/go-amino/blob/8e779b71f40d175cd1302d3cd41a75b005225a7a/json-encode.go#L45-L51
-func marshalTimestamp(_ *Encoder, message protoreflect.Message, writer io.Writer) error {
+func marshalTimestamp(message protoreflect.Message, writer io.Writer) error {
 	fields := message.Descriptor().Fields()
 	secondsField := fields.ByName(secondsName)
 	if secondsField == nil {
-		return errors.New("expected seconds field")
+		return fmt.Errorf("expected seconds field")
 	}
 
 	nanosField := fields.ByName(nanosName)
 	if nanosField == nil {
-		return errors.New("expected nanos field")
+		return fmt.Errorf("expected nanos field")
 	}
 
 	seconds := message.Get(secondsField).Int()
@@ -50,11 +48,11 @@ func marshalTimestamp(_ *Encoder, message protoreflect.Message, writer io.Writer
 // gogoproto encodes google.protobuf.Duration as a time.Duration, which is 64-bit signed integer.
 const MaxDurationSeconds = int64(math.MaxInt64)/1e9 - 1
 
-func marshalDuration(_ *Encoder, message protoreflect.Message, writer io.Writer) error {
+func marshalDuration(message protoreflect.Message, writer io.Writer) error {
 	fields := message.Descriptor().Fields()
 	secondsField := fields.ByName(secondsName)
 	if secondsField == nil {
-		return errors.New("expected seconds field")
+		return fmt.Errorf("expected seconds field")
 	}
 
 	// todo
@@ -66,11 +64,11 @@ func marshalDuration(_ *Encoder, message protoreflect.Message, writer io.Writer)
 
 	nanosField := fields.ByName(nanosName)
 	if nanosField == nil {
-		return errors.New("expected nanos field")
+		return fmt.Errorf("expected nanos field")
 	}
 
 	nanos := message.Get(nanosField).Int()
 	totalNanos := nanos + (seconds * 1e9)
-	_, err := fmt.Fprintf(writer, `"%d"`, totalNanos)
+	_, err := writer.Write([]byte(fmt.Sprintf(`"%d"`, totalNanos)))
 	return err
 }
