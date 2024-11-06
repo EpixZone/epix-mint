@@ -131,7 +131,7 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 	bigIntAmount.SetString("23668256824195824000000000", 10)
 	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
 
-	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, fromAddr, moduleAcc.GetAddress().String(), amount); err != nil {
+	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, fromAddr, types.ModuleName, amount); err != nil {
 		panic(err)
 	}
 
