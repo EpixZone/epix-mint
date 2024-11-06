@@ -59,7 +59,10 @@ func (k BaseKeeper) InitGenesis(ctx context.Context, genState *types.GenesisStat
 	bigIntAmount := new(big.Int)
 	bigIntAmount.SetString("23668256824195824000000000", 10)
 	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
-	if err := k.MintCoins(ctx, "distribution", amount); err != nil {
+	if err := k.MintCoins(ctx, types.ModuleName, amount); err != nil {
+		panic(err)
+	}
+	if err := k.SendCoinsFromModuleToModule(ctx, types.ModuleName, "distribution", amount); err != nil {
 		panic(err)
 	}
 }
