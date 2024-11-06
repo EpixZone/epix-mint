@@ -41,11 +41,14 @@ func (k Keeper) SetLastHalvingTime(ctx context.Context, tm time.Time) error {
 func (k Keeper) GetLastHalvingAmount(ctx context.Context) (math.Int, error) {
 	store := k.storeService.OpenKVStore(ctx)
 	b, _ := store.Get(types.LastHalvingAmountPrefix)
-	denom, _ := sdk.GetBaseDenom()
-	denomUnit, _ := sdk.GetDenomUnit(denom)
+	// denom, _ := sdk.GetBaseDenom()
+	// denomUnit, _ := sdk.GetDenomUnit(denom)
 	if b == nil {
 		// 2.5 M : first year
-		return math.NewInt(2500000).Mul(denomUnit.RoundInt()), nil
+		amount, _ := math.NewIntFromString("2288807753694100000000000")
+
+		return amount, nil
+		// return math.NewInt(2500000).Mul(denomUnit.RoundInt()), nil
 	}
 
 	var value math.Int

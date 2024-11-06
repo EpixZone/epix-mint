@@ -60,7 +60,7 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context, coin sdk.Coin) error {
 
 	tmNow := time.Now()
 
-	if lastHalvingTime.Add(time.Hour * 365 * 24).Before(tmNow) {
+	if lastHalvingTime.Add(time.Hour * 365 * 24 * 4).Before(tmNow) {
 		lastHalvingAmount = lastHalvingAmount.Quo(math.NewInt(2))
 		k.SetLastHalvingAmount(ctx, lastHalvingAmount)
 	}
