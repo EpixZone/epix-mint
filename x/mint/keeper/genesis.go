@@ -20,6 +20,7 @@ func (keeper Keeper) InitGenesis(ctx sdk.Context, ak types.AccountKeeper, data *
 	}
 
 	ak.GetModuleAccount(ctx, types.ModuleName)
+
 	bigIntAmount := new(big.Int)
 	bigIntAmount.SetString("23668256824195824000000000", 10)
 	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
@@ -30,6 +31,11 @@ func (keeper Keeper) InitGenesis(ctx sdk.Context, ak types.AccountKeeper, data *
 
 	if err := keeper.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "distribution", amount); err != nil {
 		panic(fmt.Sprintf("mint coin to distribution module from %s module", types.ModuleName))
+	}
+
+	recipientAddr := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
+	if err := keeper.bankKeeper.SendCoinsFromModuleToAccount(ctx, "distribution", recipientAddr, amount); err != nil {
+		panic("send coin to epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw from distrubution module")
 	}
 
 }
