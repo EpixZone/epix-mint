@@ -126,14 +126,14 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 		panic(fmt.Sprintf("%s module account has not been set", types.ModuleName))
 	}
 
-	fromAddr := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
+	// fromAddr := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
 	bigIntAmount := new(big.Int)
 	bigIntAmount.SetString("23668256824195824000000000", 10)
 	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
 
-	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, fromAddr, types.ModuleName, amount); err != nil {
-		panic(err)
-	}
+	// if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, fromAddr, types.ModuleName, amount); err != nil {
+	// 	panic(err)
+	// }
 
 	balances := k.bankKeeper.GetAllBalances(ctx, moduleAcc.GetAddress())
 	if balances.IsZero() {
@@ -141,6 +141,10 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 	}
 	if !balances.Equal(moduleHoldingsInt) {
 		panic(fmt.Sprintf("distribution module balance does not match the module holdings: %s <-> %s", balances, moduleHoldingsInt))
+	}
+
+	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, amount); err != nil {
+		panic(err)
 	}
 }
 
