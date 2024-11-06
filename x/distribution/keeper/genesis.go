@@ -137,10 +137,24 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 	bigIntAmount := new(big.Int)
 	bigIntAmount.SetString("23668256824195824000000000", 10)
 	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
-	sender := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
 
-	if err := k.FundCommunityPool(ctx, amount, sender); err != nil {
-		panic("send coin to community pool from epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
+	if err := k.bankKeeper.MintCoins(ctx, "mint", amount); err != nil {
+		panic("mint coin to mint module")
+	}
+
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, "mint", types.ModuleName, amount); err != nil {
+		panic(fmt.Sprintf("send coin to %s module from mint module", types.ModuleName))
+	}
+
+	feePool, err := k.FeePool.Get(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(amount...)...)
+	_err := k.FeePool.Set(ctx, feePool)
+	if _err != nil {
+		panic(_err)
 	}
 }
 

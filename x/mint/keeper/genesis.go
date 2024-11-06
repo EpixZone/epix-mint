@@ -1,10 +1,6 @@
 package keeper
 
 import (
-	"fmt"
-	"math/big"
-
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/mint/types"
 )
@@ -21,22 +17,22 @@ func (keeper Keeper) InitGenesis(ctx sdk.Context, ak types.AccountKeeper, data *
 
 	ak.GetModuleAccount(ctx, types.ModuleName)
 
-	bigIntAmount := new(big.Int)
-	bigIntAmount.SetString("23668256824195824000000000", 10)
-	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
+	// bigIntAmount := new(big.Int)
+	// bigIntAmount.SetString("23668256824195824000000000", 10)
+	// amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
 
-	if err := keeper.MintCoins(ctx, amount); err != nil {
-		panic(fmt.Sprintf("mint coin to %s module", types.ModuleName))
-	}
+	// if err := keeper.MintCoins(ctx, amount); err != nil {
+	// 	panic(fmt.Sprintf("mint coin to %s module", types.ModuleName))
+	// }
 
-	if err := keeper.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "distribution", amount); err != nil {
-		panic(fmt.Sprintf("mint coin to distribution module from %s module", types.ModuleName))
-	}
+	// if err := keeper.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "distribution", amount); err != nil {
+	// 	panic(fmt.Sprintf("mint coin to distribution module from %s module", types.ModuleName))
+	// }
 
-	recipientAddr := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
-	if err := keeper.bankKeeper.SendCoinsFromModuleToAccount(ctx, "distribution", recipientAddr, amount); err != nil {
-		panic("send coin to epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw from distrubution module")
-	}
+	// recipientAddr := sdk.AccAddress("epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw")
+	// if err := keeper.bankKeeper.SendCoinsFromModuleToAccount(ctx, "distribution", recipientAddr, amount); err != nil {
+	// 	panic("send coin to epix1fw4t8peek96a6x6a32v30y22l59ph5wc4hmqmw from distrubution module")
+	// }
 
 }
 
