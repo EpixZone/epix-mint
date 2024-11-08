@@ -2,9 +2,7 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 
-	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
@@ -134,28 +132,6 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 		panic(fmt.Sprintf("distribution module balance does not match the module holdings: %s <-> %s", balances, moduleHoldingsInt))
 	}
 
-	bigIntAmount := new(big.Int)
-	bigIntAmount.SetString("23668256824195824000000000", 10)
-	amount := sdk.NewCoins((sdk.NewCoin("aepix", math.NewIntFromBigInt(bigIntAmount))))
-
-	if err := k.bankKeeper.MintCoins(ctx, "mint", amount); err != nil {
-		panic("mint coin to mint module")
-	}
-
-	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, "mint", types.ModuleName, amount); err != nil {
-		panic(fmt.Sprintf("send coin to %s module from mint module", types.ModuleName))
-	}
-
-	feePool, err := k.FeePool.Get(ctx)
-	if err != nil {
-		panic(err)
-	}
-
-	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(amount...)...)
-	_err := k.FeePool.Set(ctx, feePool)
-	if _err != nil {
-		panic(_err)
-	}
 }
 
 // ExportGenesis returns a GenesisState for a given context and keeper.
