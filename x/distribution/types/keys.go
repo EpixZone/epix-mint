@@ -55,6 +55,10 @@ var (
 	ValidatorAccumulatedCommissionPrefix = []byte{0x07} // key for accumulated validator commission
 	ValidatorSlashEventPrefix            = []byte{0x08} // key for validator slash fraction
 
+	LastHalvingTimePrefix   = []byte{0x10} // key for Last Halving Time
+	PreviousBlockTImePrefix = []byte{0x11} // key for Previous Block TIme
+	LastHalvingAmountPrefix = []byte{0x12} // key for the last halving amount ( 2.5M : 1st year)
+
 	ParamsKey = collections.NewPrefix(9) // key for distribution module params
 )
 
