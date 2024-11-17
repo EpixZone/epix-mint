@@ -67,7 +67,8 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context, coin sdk.Coin) error {
 
 	denom, _ := sdk.GetBaseDenom()
 	duration := tmNow.Sub(previousBlockTime)
-	amount := lastHalvingAmount.MulRaw(duration.Milliseconds()).QuoRaw(365 * 24 * 3600 * 1000)
+	// amount := lastHalvingAmount.MulRaw(duration.Milliseconds()).QuoRaw(365 * 24 * 3600 * 1000)
+	amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(1000000000)
 
 	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
 
