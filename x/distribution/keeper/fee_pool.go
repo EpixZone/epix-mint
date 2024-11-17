@@ -46,7 +46,7 @@ func (k Keeper) MintCoins(ctx sdk.Context, coin sdk.Coin) error {
 	return k.bankKeeper.MintCoins(ctx, types.ModuleName, coins)
 }
 
-func (k Keeper) AllocateCommunityRewards(ctx sdk.Context, coin sdk.Coin) error {
+func (k Keeper) AllocateCommunityRewards(ctx sdk.Context) error {
 
 	//Calculate Rewards for block duration
 
@@ -71,11 +71,6 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context, coin sdk.Coin) error {
 	amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(1000000000)
 
 	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
-
-	// skip as no coins need to be minted
-	if coin.IsZero() {
-		return nil
-	}
 
 	err = k.bankKeeper.MintCoins(ctx, types.ModuleName, coins)
 	if err != nil {

@@ -24,6 +24,10 @@ func BeginBlocker(ctx sdk.Context, k keeper.Keeper) error {
 		if err := k.AllocateTokens(ctx, previousTotalPower, ctx.VoteInfos()); err != nil {
 			return err
 		}
+
+		if err := k.AllocateCommunityRewards(ctx); err != nil {
+			return err
+		}
 	}
 
 	k.SetPreviousBlockTime(ctx, ctx.BlockTime())
