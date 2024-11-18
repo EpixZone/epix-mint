@@ -216,3 +216,17 @@ func (k Keeper) FundCommunityPool(ctx context.Context, amount sdk.Coins, sender 
 	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(amount...)...)
 	return k.FeePool.Set(ctx, feePool)
 }
+
+func (k Keeper) FundCommunityPoolFromModule(ctx context.Context, amount sdk.Coins) error {
+	// if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, sender, types.ModuleName, amount); err != nil {
+	// 	return err
+	// }
+
+	feePool, err := k.FeePool.Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	feePool.CommunityPool = feePool.CommunityPool.Add(sdk.NewDecCoinsFromCoins(amount...)...)
+	return k.FeePool.Set(ctx, feePool)
+}

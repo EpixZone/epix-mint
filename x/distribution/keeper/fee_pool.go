@@ -54,6 +54,8 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context) error {
 	previousBlockTime, _ := k.GetPreviousBlockTime(ctx)
 	lastHalvingTime, err := k.GetLastHalvingTime(ctx)
 
+	logger := k.Logger(ctx)
+
 	if err != nil {
 		lastHalvingTime = time.Now()
 	}
@@ -68,7 +70,7 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context) error {
 	denom, _ := sdk.GetBaseDenom()
 	duration := tmNow.Sub(previousBlockTime)
 	// amount := lastHalvingAmount.MulRaw(duration.Milliseconds()).QuoRaw(365 * 24 * 3600 * 1000)
-	amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(1000000000)
+	amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(10000000)
 
 	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
 
@@ -77,7 +79,12 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context) error {
 		return err
 	}
 
-	k.FundCommunityPool(ctx, coins, sdk.AccAddress(types.ModuleName))
+	err = k.FundCommunityPoolFromModule(ctx, coins)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("AllocateCommunityRewards ", "FundCommunityPoolFromModule", amount)
 
 	return nil
 }

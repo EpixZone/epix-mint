@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
@@ -132,6 +133,25 @@ func (k Keeper) InitGenesis(ctx sdk.Context, data types.GenesisState) {
 		panic(fmt.Sprintf("distribution module balance does not match the module holdings: %s <-> %s", balances, moduleHoldingsInt))
 	}
 
+	// Funds to community pool at genesis init stage
+	denom, _ := sdk.GetBaseDenom()
+	// amount := math.NewInt(23668256824195824).MulRaw(1000000000)
+	amount := math.NewInt(1000000000).MulRaw(1000000000)
+
+	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
+
+	err = k.bankKeeper.MintCoins(ctx, types.ModuleName, coins)
+	if err != nil {
+		panic(err)
+	}
+
+	err = k.FundCommunityPoolFromModule(ctx, coins)
+	if err != nil {
+		panic(err)
+	}
+
+	logger := k.Logger(ctx)
+	logger.Info("FundCommunityPool", amount)
 }
 
 // ExportGenesis returns a GenesisState for a given context and keeper.
