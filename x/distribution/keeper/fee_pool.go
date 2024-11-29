@@ -62,15 +62,16 @@ func (k Keeper) AllocateCommunityRewards(ctx sdk.Context) error {
 
 	tmNow := time.Now()
 
-	if lastHalvingTime.Add(time.Hour * 365 * 24 * 4).Before(tmNow) {
+	if lastHalvingTime.Add(time.Hour).Before(tmNow) {
+		// if lastHalvingTime.Add(time.Hour * 365 * 24 * 4).Before(tmNow) {
 		lastHalvingAmount = lastHalvingAmount.Quo(math.NewInt(2))
 		k.SetLastHalvingAmount(ctx, lastHalvingAmount)
 	}
 
 	denom, _ := sdk.GetBaseDenom()
 	duration := tmNow.Sub(previousBlockTime)
-	// amount := lastHalvingAmount.MulRaw(duration.Milliseconds()).QuoRaw(365 * 24 * 3600 * 1000)
-	amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(10000000)
+	amount := lastHalvingAmount.MulRaw(duration.Milliseconds()).QuoRaw(3600 * 1000)
+	// amount := lastHalvingAmount.Quo(lastHalvingAmount).MulRaw(duration.Nanoseconds()).MulRaw(10000000)
 
 	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
 
