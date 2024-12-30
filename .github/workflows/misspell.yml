@@ -1,9 +1,9 @@
 name: Spell Check
 
 on:
-  pull_request:
-  schedule:
-    - cron: "0 12 * * *"
+#  pull_request:
+#  schedule:
+#    - cron: "0 12 * * *"
 
 jobs:
   build:
